@@ -9,7 +9,7 @@ from .helpers import sphere, find_enclosure, closest_integer_point, bresenham3d,
 
 class BrainExtractor:
     """
-        Implmenation of the FSL Brain Extraction Tool
+        Implemenation of the FSL Brain Extraction Tool
 
         This class takes in a Nifti1Image class and generates
         the brain surface and mask.
@@ -99,7 +99,7 @@ class BrainExtractor:
             Updates attributes related to the surface
         """
         self.vertices = np.array(self.surface.vertices)
-        self.vertex_normals = np.array(self.surface.vertex_normals)
+        self.vertex_normals = np.ascontiguousarray(self.surface.vertex_normals)
         self.vertex_neighbors_idx = self.surface.vertex_neighbors
         self.vertex_neighbors = [np.vstack([self.vertices[v] for v in ni]) for ni in self.vertex_neighbors_idx]
         self.vertex_neighbors_centroids = np.vstack([np.mean(self.vertex_neighbors[i], axis=0) for i in range(self.num_vertices)])
@@ -115,6 +115,18 @@ class BrainExtractor:
             PMCID: PMC6871816.
 
         """
+        # initialize s_vectors
+        s_vectors = np.zeros(self.vertices.shape)
+
+        # initialize s_vector normal/tangent
+        s_n = np.zeros(self.vertices.shape)
+        s_t = np.zeros(self.vertices.shape)
+
+        # initialize u components
+        u1 = np.zeros(self.vertices.shape)
+        u2 = np.zeros(self.vertices.shape)
+        u3 = np.zeros(self.vertices.shape)
+
         # surface deformation loop
         for i in range(iterations):
             print("Iteration: %d" % i)
@@ -126,7 +138,8 @@ class BrainExtractor:
                 self.data, self.vertices, self.vertex_normals,
                 self.vertex_neighbors_centroids,
                 l, self.t2, self.t, self.tm, self.t98,
-                self.E, self.F, self.bt, self.d1, self.d2
+                self.E, self.F, self.bt, self.d1, self.d2,
+                s_vectors, s_n, s_t, u1, u2, u3
             )
             # update the surface
             self.rebuild_surface(self.vertices + u)
@@ -147,23 +160,18 @@ class BrainExtractor:
         F: float,
         bt: float,
         d1: float,
-        d2: float
+        d2: float,
+        s_vectors: np.ndarray,
+        s_n: np.ndarray,
+        s_t: np.ndarray,
+        u1: np.ndarray,
+        u2: np.ndarray,
+        u3: np.ndarray
         ):
         """
             Finds a single displacement step for the surface
         """
-        # compute s vector (vector from vertex to centroid of it's neighbors)
-        s_vectors = np.zeros(vertices.shape)
-
-        # split s into normal/tangent
-        s_n = np.zeros(vertices.shape)
-        s_t = np.zeros(vertices.shape)
-
-        # define u components
-        u1 = np.zeros(vertices.shape)
-        u2 = np.zeros(vertices.shape)
-        u3 = np.zeros(vertices.shape)
-
+        # loop over vertices
         for i, vertex in enumerate(vertices):
             # compute s vector
             s_vectors[i] = neighbors_centroids[i] - vertex
