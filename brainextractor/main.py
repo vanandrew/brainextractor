@@ -70,7 +70,7 @@ class BrainExtractor:
 
         # compute 1/2 head radius with spherical formula
         self.r = 0.5 * np.cbrt(3 * np.sum(self.rdata > self.t) / (4 * np.pi))
-        print("Head Radius: %f" % self.r)
+        print("Head Radius: %f" % 2*self.r)
 
         # get median value within estimated head sphere
         self.tm = np.median(self.data[sphere(self.shape, 2*self.r, self.c)])
