@@ -126,6 +126,7 @@ class BrainExtractor:
         u1 = np.zeros(self.vertices.shape)
         u2 = np.zeros(self.vertices.shape)
         u3 = np.zeros(self.vertices.shape)
+        u = np.zeros(self.vertices.shape)
 
         # surface deformation loop
         for i in range(iterations):
@@ -134,12 +135,12 @@ class BrainExtractor:
             if i % 100 == 0 or i == 50:
                 l = self.get_mean_intervertex_distance()
             # run one step of deformation
-            u = self.step_of_deformation(
+            self.step_of_deformation(
                 self.data, self.vertices, self.vertex_normals,
                 self.vertex_neighbors_centroids,
                 l, self.t2, self.t, self.tm, self.t98,
                 self.E, self.F, self.bt, self.d1, self.d2,
-                s_vectors, s_n, s_t, u1, u2, u3
+                s_vectors, s_n, s_t, u1, u2, u3, u
             )
             # update the surface
             self.rebuild_surface(self.vertices + u)
@@ -166,7 +167,8 @@ class BrainExtractor:
         s_t: np.ndarray,
         u1: np.ndarray,
         u2: np.ndarray,
-        u3: np.ndarray
+        u3: np.ndarray,
+        u: np.ndarray
         ):
         """
             Finds a single displacement step for the surface
@@ -221,10 +223,7 @@ class BrainExtractor:
             u3[i] = f3 * normals[i]
 
         # get displacement vector
-        u = u1 + u2 + u3
-
-        # return displacement vector
-        return u
+        u[:,:] = u1 + u2 + u3
 
     def get_mean_intervertex_distance(self):
         """
