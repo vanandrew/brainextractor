@@ -127,7 +127,7 @@ class BrainExtractor:
             Updates attributes related to the surface
         """
         self.vertices = np.array(self.surface.vertices)
-        self.vertex_neighbors_idx = List([List(i) for i in self.surface.vertex_neighbors])
+        self.vertex_neighbors_idx = List([np.array(i) for i in self.surface.vertex_neighbors])
         # self.vertex_neighbors_idx = List(self.surface.vertex_neighbors) 
         self.vertex_normals, self.vertex_neighbors, self.vertex_neighbors_size, \
             self.vertex_neighbors_centroids = self.update_surf_attr(
