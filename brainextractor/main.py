@@ -4,7 +4,8 @@
 import nibabel as nib
 import numpy as np
 import trimesh
-from numba import jit
+from numba import jit, prange
+from numba.typed import List
 from .helpers import sphere, find_enclosure, closest_integer_point, bresenham3d, l2norm
 
 class BrainExtractor:
@@ -94,15 +95,49 @@ class BrainExtractor:
         self.surface = trimesh.Trimesh(vertices=vertices, faces=self.surface.faces)
         self.update_surface_attributes()
 
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def update_surf_attr(vertices, normals, neighbors_idx):
+        # get normals as contiguous in memory
+        normals = np.ascontiguousarray(normals)
+        
+        # the neighbors array is tricky because it doesn't 
+        # have the structure of a nice rectangular array
+        # we initialize it to be the largest size (6) then we
+        # can make a check for valid vertices later with neighbors size
+        neighbors = np.zeros((vertices.shape[0], 6, 3))
+        neighbors_size = np.zeros(vertices.shape[0], dtype=np.int8)
+        for i, ni in enumerate(neighbors_idx):
+            for j, vi in enumerate(ni):
+                neighbors[i,j,:] = vertices[vi]
+            neighbors_size[i] = j + 1
+        
+        # compute centroids
+        centroids = np.zeros((vertices.shape[0], 3))
+        for i, (n, s) in enumerate(zip(neighbors, neighbors_size)):
+            centroids[i,0] = np.mean(n[:s,0])
+            centroids[i,1] = np.mean(n[:s,1])
+            centroids[i,2] = np.mean(n[:s,2])
+
+        # return optimized surface attributes
+        return normals, neighbors, neighbors_size, centroids
+
     def update_surface_attributes(self):
         """
             Updates attributes related to the surface
         """
         self.vertices = np.array(self.surface.vertices)
-        self.vertex_normals = np.ascontiguousarray(self.surface.vertex_normals)
-        self.vertex_neighbors_idx = self.surface.vertex_neighbors
-        self.vertex_neighbors = [np.vstack([self.vertices[v] for v in ni]) for ni in self.vertex_neighbors_idx]
-        self.vertex_neighbors_centroids = np.vstack([np.mean(self.vertex_neighbors[i], axis=0) for i in range(self.num_vertices)])
+        self.vertex_neighbors_idx = List([List(i) for i in self.surface.vertex_neighbors])
+        # self.vertex_neighbors_idx = List(self.surface.vertex_neighbors) 
+        self.vertex_normals, self.vertex_neighbors, self.vertex_neighbors_size, \
+            self.vertex_neighbors_centroids = self.update_surf_attr(
+                self.vertices,
+                self.surface.vertex_normals,
+                self.vertex_neighbors_idx)
+        # self.vertex_neighbors = [np.vstack([self.vertices[v] for v in ni]) for ni in self.vertex_neighbors_idx]
+        # self.vertex_neighbors_centroids = np.vstack([np.mean(self.vertex_neighbors[i], axis=0) for i in range(self.num_vertices)])
+        # self.vertex_normals = np.ascontiguousarray(self.surface.vertex_normals)
+        # breakpoint()
 
     def run(self, iterations=1000):
         """
@@ -133,7 +168,14 @@ class BrainExtractor:
             print("Iteration: %d" % i)
             # update the mean intervertex distances at intervals of 100 (and iteration 50)
             if i % 100 == 0 or i == 50:
-                l = self.get_mean_intervertex_distance()
+                # l = self.get_mean_intervertex_distance()
+                l = self.get_mean_intervertex_distance(
+                    self.vertices,
+                    self.vertex_neighbors,
+                    self.vertex_neighbors_size
+                )
+                # print(l)
+                # breakpoint()
             # run one step of deformation
             self.step_of_deformation(
                 self.data, self.vertices, self.vertex_normals,
@@ -225,23 +267,38 @@ class BrainExtractor:
         # get displacement vector
         u[:,:] = u1 + u2 + u3
 
-    def get_mean_intervertex_distance(self):
-        """
-            Computes the mean intervertex distance across the entire surface
-        """
-        # Compute the mean intervertex distance
-        return np.mean([self.compute_mlid(self.vertices[i] - self.vertex_neighbors[i]) for i in range(self.num_vertices)])
+    # def get_mean_intervertex_distance(self):
+    #     """
+    #         Computes the mean intervertex distance across the entire surface
+    #     """
+    #     # Compute the mean intervertex distance
+    #     return np.mean([self.compute_mlid(self.vertices[i] - self.vertex_neighbors[i]) for i in range(self.num_vertices)])
 
     @staticmethod
     @jit(nopython=True, cache=True)
-    def compute_mlid(vecs: np.ndarray):
+    def get_mean_intervertex_distance(vertices: np.ndarray, neighbors: np.ndarray, sizes: np.ndarray):
         """
-            Computes the mean local intervertex distance
+            Computes the mean intervertex distance across the entire surface
         """
-        result = list()
-        for i in range(vecs.shape[0]): # pylint: disable=not-an-iterable
-            result.append(l2norm(vecs[i]))
-        return np.mean(np.array(result))
+        mivd = np.zeros(vertices.shape[0])
+        for v in range(vertices.shape[0]):
+            vecs = vertices[v] - neighbors[v,:sizes[v]]
+            vd = np.zeros(vecs.shape[0])
+            for i in range(vecs.shape[0]):
+                vd[i] = l2norm(vecs[i])
+            mivd[v] = np.mean(vd)
+        return np.mean(mivd)
+
+    # @staticmethod
+    # @jit(nopython=True, cache=True)
+    # def compute_mlid(vecs: np.ndarray):
+    #     """
+    #         Computes the mean local intervertex distance
+    #     """
+    #     result = list()
+    #     for i in range(vecs.shape[0]): # pylint: disable=not-an-iterable
+    #         result.append(l2norm(vecs[i]))
+    #     return np.mean(np.array(result))
 
     def compute_mask(self):
         """
