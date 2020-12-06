@@ -4,7 +4,7 @@
 import nibabel as nib
 import numpy as np
 import trimesh
-from numba import jit, prange
+from numba import jit
 from .helpers import sphere, find_enclosure, closest_integer_point, bresenham3d, l2norm
 
 class BrainExtractor:
@@ -70,7 +70,7 @@ class BrainExtractor:
 
         # compute 1/2 head radius with spherical formula
         self.r = 0.5 * np.cbrt(3 * np.sum(self.rdata > self.t) / (4 * np.pi))
-        print("Head Radius: %f" % 2*self.r)
+        print("Head Radius: %f" % (2*self.r))
 
         # get median value within estimated head sphere
         self.tm = np.median(self.data[sphere(self.shape, 2*self.r, self.c)])
@@ -132,6 +132,7 @@ class BrainExtractor:
             self.rebuild_surface(self.vertices + u)
 
     @staticmethod
+    @jit(nopython=True)
     def step_of_deformation(
         data: np.ndarray,
         vertices: np.ndarray,
@@ -225,13 +226,13 @@ class BrainExtractor:
         return np.mean([self.compute_mlid(self.vertices[i] - self.vertex_neighbors[i]) for i in range(self.num_vertices)])
 
     @staticmethod
-    @jit(nopython=True, parallel=True, cache=True)
+    @jit(nopython=True, cache=True)
     def compute_mlid(vecs: np.ndarray):
         """
             Computes the mean local intervertex distance
         """
         result = list()
-        for i in prange(vecs.shape[0]): # pylint: disable=not-an-iterable
+        for i in range(vecs.shape[0]): # pylint: disable=not-an-iterable
             result.append(l2norm(vecs[i]))
         return np.mean(np.array(result))
 
