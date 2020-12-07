@@ -16,12 +16,12 @@ class BrainExtractor:
         the brain surface and mask.
     """
     def __init__(self,
-        img=nib.Nifti1Image,
-        bt=0.53,
-        d1=20.0, # mm
-        d2=10.0, # mm
-        rmin=3.33, # mm
-        rmax=10.0 # mm
+        img: nib.Nifti1Image,
+        bt: float = 0.5,
+        d1: float = 20.0, # mm
+        d2: float = 10.0, # mm
+        rmin: float = 3.33, # mm
+        rmax: float = 10.0 # mm
         ):
         """
             Initialization of Brain Extractor
@@ -97,7 +97,7 @@ class BrainExtractor:
 
     @staticmethod
     @jit(nopython=True, cache=True)
-    def update_surf_attr(vertices, normals, neighbors_idx):
+    def update_surf_attr(vertices: np.ndarray, normals: np.ndarray, neighbors_idx: list):
         # get normals as contiguous in memory
         normals = np.ascontiguousarray(normals)
 
@@ -139,7 +139,7 @@ class BrainExtractor:
         # self.vertex_normals = np.ascontiguousarray(self.surface.vertex_normals)
         # breakpoint()
 
-    def run(self, iterations=1000):
+    def run(self, iterations: int = 1000):
         """
             Runs the extraction step.
 
@@ -186,6 +186,9 @@ class BrainExtractor:
             )
             # update the surface
             self.rebuild_surface(self.vertices + u)
+
+        # fix self intersections
+        
 
     @staticmethod
     @jit(nopython=True, cache=True)
@@ -315,14 +318,14 @@ class BrainExtractor:
                 int(vol.bounds[0,2]):int(vol.bounds[1,2])] = vol.matrix
         return self.mask
 
-    def save_mask(self, filename):
+    def save_mask(self, filename: str):
         """
             Saves brain extraction to nifti file
         """
         mask = self.compute_mask()
         nib.Nifti1Image(mask, self.img.affine).to_filename(filename)
 
-    def save_surface(self, filename):
+    def save_surface(self, filename: str):
         """
             Save surface in .stl
         """
