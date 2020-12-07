@@ -184,7 +184,6 @@ class BrainExtractor:
                 self.E, self.F, self.bt, self.d1, self.d2,
                 s_vectors, s_n, s_t, u1, u2, u3, u
             )
-            print("Displacement Norm: %f" % l2norm(np.mean(u, axis=0)))
             # update the surface
             self.rebuild_surface(self.vertices + u)
 
@@ -306,7 +305,14 @@ class BrainExtractor:
             Convert surface mesh to volume
         """
         if not hasattr(self, "mask"):
-            self.mask = find_enclosure(self.surface, self.shape)
+            # self.mask = find_enclosure(self.surface, self.shape)
+            vol = self.surface.voxelized(1)
+            vol = vol.fill()
+            self.mask = np.zeros(self.shape)
+            self.mask[
+                int(vol.bounds[0,0]):int(vol.bounds[1,0]),
+                int(vol.bounds[0,1]):int(vol.bounds[1,1]),
+                int(vol.bounds[0,2]):int(vol.bounds[1,2])] = vol.matrix
         return self.mask
 
     def save_mask(self, filename):
