@@ -17,22 +17,22 @@ class BrainExtractor:
     """
     def __init__(self,
         img=nib.Nifti1Image,
-        bt=0.1,
-        d1=7.0, # mm
-        d2=3.0, # mm
+        bt=0.53,
+        d1=20.0, # mm
+        d2=10.0, # mm
         rmin=3.33, # mm
         rmax=10.0 # mm
         ):
         """
             Initialization of Brain Extractor
 
-            Computes image range/thresholds and 
-            estimates the brain radius 
+            Computes image range/thresholds and
+            estimates the brain radius
         """
         print("Initializing...")
 
         # store brain extraction parameters
-        self.bt = bt**0.275 # FSL changes the fractional threshold to be bt^0.275 (Don't ask me why it does this...)
+        self.bt = bt
         self.d1 = d1
         self.d2 = d2
         self.rmin = rmin
@@ -81,7 +81,7 @@ class BrainExtractor:
         print("Initializing surface...")
         self.surface = trimesh.creation.icosphere(subdivisions=4, radius=self.r)
         self.surface = self.surface.apply_transform([[1,0,0,ci],[0,1,0,cj],[0,0,1,ck],[0,0,0,1]])
-        
+
         # update the surface attributes
         self.num_vertices = self.surface.vertices.shape[0]
         self.update_surface_attributes()
@@ -100,8 +100,8 @@ class BrainExtractor:
     def update_surf_attr(vertices, normals, neighbors_idx):
         # get normals as contiguous in memory
         normals = np.ascontiguousarray(normals)
-        
-        # the neighbors array is tricky because it doesn't 
+
+        # the neighbors array is tricky because it doesn't
         # have the structure of a nice rectangular array
         # we initialize it to be the largest size (6) then we
         # can make a check for valid vertices later with neighbors size
@@ -111,7 +111,7 @@ class BrainExtractor:
             for j, vi in enumerate(ni):
                 neighbors[i,j,:] = vertices[vi]
             neighbors_size[i] = j + 1
-        
+
         # compute centroids
         centroids = np.zeros((vertices.shape[0], 3))
         for i, (n, s) in enumerate(zip(neighbors, neighbors_size)):
@@ -128,7 +128,7 @@ class BrainExtractor:
         """
         self.vertices = np.array(self.surface.vertices)
         self.vertex_neighbors_idx = List([np.array(i) for i in self.surface.vertex_neighbors])
-        # self.vertex_neighbors_idx = List(self.surface.vertex_neighbors) 
+        # self.vertex_neighbors_idx = List(self.surface.vertex_neighbors)
         self.vertex_normals, self.vertex_neighbors, self.vertex_neighbors_size, \
             self.vertex_neighbors_centroids = self.update_surf_attr(
                 self.vertices,
@@ -188,7 +188,7 @@ class BrainExtractor:
             self.rebuild_surface(self.vertices + u)
 
     @staticmethod
-    @jit(nopython=True)
+    @jit(nopython=True, cache=True)
     def step_of_deformation(
         data: np.ndarray,
         vertices: np.ndarray,
@@ -324,6 +324,6 @@ class BrainExtractor:
 
     def save_surface(self, filename):
         """
-            Save surface in .stl 
+            Save surface in .stl
         """
         self.surface.export(filename)
