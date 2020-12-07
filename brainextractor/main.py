@@ -184,6 +184,7 @@ class BrainExtractor:
                 self.E, self.F, self.bt, self.d1, self.d2,
                 s_vectors, s_n, s_t, u1, u2, u3, u
             )
+            print("Displacement Norm: %f" % l2norm(np.mean(u, axis=0)))
             # update the surface
             self.rebuild_surface(self.vertices + u)
 

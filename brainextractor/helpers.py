@@ -4,7 +4,6 @@
 import numpy as np
 import trimesh
 from numba import jit
-from scipy.spatial import cKDTree # pylint: disable=no-name-in-module
 
 def sphere(shape: list, radius: float, position: list):
     """
@@ -35,7 +34,6 @@ def cartesian(arrays, out=None):
     """
         Generate a cartesian product of input arrays
     """
-
     arrays = [np.asarray(x) for x in arrays]
     dtype = arrays[0].dtype
 
@@ -70,8 +68,8 @@ def find_enclosure(surface: trimesh.Trimesh, data_shape: tuple):
     # get vertex normals for each vertex on the surface
     normals = surface.vertex_normals
 
-    # create KDTree over surface vertices
-    searcher = cKDTree(surface.vertices)
+    # get KDTree over surface vertices
+    searcher = surface.kdtree
 
     # get bounding box around surface
     max_loc = np.ceil(np.max(surface.vertices, axis=0)).astype(np.int64)
@@ -110,7 +108,7 @@ def find_enclosure(surface: trimesh.Trimesh, data_shape: tuple):
 @jit(nopython=True, cache=True)
 def closest_integer_point(vertex: np.ndarray):
     """
-        Gives the closest integer point based on euclidena distance
+        Gives the closest integer point based on euclidean distance
     """
     # get neighboring grid points to search
     x = vertex[0]; y = vertex[1]; z = vertex[2]
@@ -137,7 +135,9 @@ def closest_integer_point(vertex: np.ndarray):
 @jit(nopython=True, cache=True)
 def bresenham3d(v0: np.ndarray, v1: np.ndarray):
     """
-        Bresenham's algorithm for 3-D line
+        Bresenham's algorithm for a 3-D line
+
+        https://www.geeksforgeeks.org/bresenhams-algorithm-for-3-d-line-drawing/
     """
     # initialize axis differences
 
