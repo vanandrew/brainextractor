@@ -7,7 +7,7 @@ mesh = pyrender.Mesh.from_trimesh(trimesh.load("data/surface00000.stl"))
 center = mesh.centroid
 
 nodes = list()
-iterations = 1000
+iterations = 10
 for i in range(iterations):
     mesh_path = "data/surface{:0>5d}.stl".format(i)
     print("Reading in surface data: %s" % mesh_path)

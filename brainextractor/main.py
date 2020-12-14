@@ -6,7 +6,13 @@ import numpy as np
 import trimesh
 from numba import jit, prange
 from numba.typed import List
-from .helpers import sphere, find_enclosure, closest_integer_point, bresenham3d, l2norm
+from .helpers import (
+    sphere,
+    closest_integer_point,
+    bresenham3d,
+    l2norm,
+    l2normarray,
+    diagonal_dot)
 
 class BrainExtractor:
     """
@@ -17,6 +23,8 @@ class BrainExtractor:
     """
     def __init__(self,
         img: nib.Nifti1Image,
+        t02t: float = 0.02,
+        t98t: float = 0.98, 
         bt: float = 0.5,
         d1: float = 20.0, # mm
         d2: float = 10.0, # mm
@@ -54,8 +62,8 @@ class BrainExtractor:
         # get thresholds from histogram
         sorted_data = np.sort(self.rdata)
         self.tmin = np.min(sorted_data)
-        self.t2 = sorted_data[np.ceil(0.02 * self.rshape).astype(np.int64) + 1]
-        self.t98 = sorted_data[np.ceil(0.98 * self.rshape).astype(np.int64) + 1]
+        self.t2 = sorted_data[np.ceil(t02t * self.rshape).astype(np.int64) + 1]
+        self.t98 = sorted_data[np.ceil(t98t * self.rshape).astype(np.int64) + 1]
         self.tmax = np.max(sorted_data)
         self.t = (self.t98 - self.t2)*0.1 + self.t2
         print("tmin: %f, t2: %f, t: %f, t98: %f, tmax: %f" % (self.tmin, self.t2, self.t, self.t98, self.tmax))
@@ -84,9 +92,92 @@ class BrainExtractor:
 
         # update the surface attributes
         self.num_vertices = self.surface.vertices.shape[0]
+        self.num_faces = self.surface.faces.shape[0]
+        self.vertices = np.array(self.surface.vertices)
+        self.faces = np.array(self.surface.faces)
+        self.vertex_neighbors_idx = List([np.array(i) for i in self.surface.vertex_neighbors])
+        # compute location of vertices in face array
+        self.face_vertex_idxs = np.zeros((self.num_vertices, 6, 2), dtype=np.int)
+        for v in range(self.num_vertices):
+            f, i = np.asarray(self.faces == v).nonzero()
+            self.face_vertex_idxs[v, :i.shape[0], 0] = f
+            self.face_vertex_idxs[v, :i.shape[0], 1] = i 
+            if i.shape[0] == 5:
+                self.face_vertex_idxs[v, 5, 0] = -1
+                self.face_vertex_idxs[v, 5, 1] = -1
         self.update_surface_attributes()
-
         print("Brain extractor initialization complete!")
+
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def compute_face_normals(num_faces, faces, vertices):
+        """
+            Compute face normals
+        """
+        face_normals = np.zeros((num_faces, 3))
+        for i, f in enumerate(faces):
+            local_v = vertices[f]
+            a = local_v[1]-local_v[0]
+            b = local_v[2]-local_v[0]
+            face_normals[i] = np.array((
+                a[1]*b[2]-a[2]*b[1], 
+                a[2]*b[0]-a[0]*b[2], 
+                a[0]*b[1]-a[1]*b[0]))
+            face_normals[i] /= l2norm(face_normals[i])
+        return face_normals
+
+    @staticmethod
+    def compute_face_angles(triangles):
+        """
+            Compute angles in triangles of each face
+        """
+        # don't copy triangles
+        triangles = np.asanyarray(triangles, dtype=np.float64)
+
+        # get a unit vector for each edge of the triangle
+        u = triangles[:, 1] - triangles[:, 0]
+        u /= l2normarray(u)[:, np.newaxis]
+        v = triangles[:, 2] - triangles[:, 0]
+        v /= l2normarray(v)[:, np.newaxis]
+        w = triangles[:, 2] - triangles[:, 1]
+        w /= l2normarray(w)[:, np.newaxis]
+
+        # run the cosine and per-row dot product
+        result = np.zeros((len(triangles), 3), dtype=np.float64)
+        # clip to make sure we don't float error past 1.0
+        result[:, 0] = np.arccos(np.clip(diagonal_dot(u, v), -1, 1))
+        result[:, 1] = np.arccos(np.clip(diagonal_dot(-u, w), -1, 1))
+        # the third angle is just the remaining
+        result[:, 2] = np.pi - result[:, 0] - result[:, 1]
+
+        # a triangle with any zero angles is degenerate
+        # so set all of the angles to zero in that case
+        result[(result < 1e-8).any(axis=1), :] = 0.0
+        return result
+
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def compute_vertex_normals(
+        num_vertices: int,
+        faces: np.ndarray,
+        face_normals: np.ndarray,
+        face_angles: np.ndarray,
+        face_vertex_idxs: np.ndarray
+        ):
+        """
+            Computes vertex normals
+        """
+        vertex_normals = np.zeros((num_vertices, 3))
+        for vertex_idx in range(num_vertices):
+            face_idxs = np.asarray([f for f in face_vertex_idxs[vertex_idx, :, 0] if f != -1])
+            inface_idxs = np.asarray([f for f in face_vertex_idxs[vertex_idx, :, 1] if f != -1])
+            surrounding_angles = face_angles.ravel()[face_idxs*3 + inface_idxs]
+            vertex_normals[vertex_idx] = np.dot(
+                surrounding_angles /
+                surrounding_angles.sum(),
+                face_normals[face_idxs])
+            vertex_normals[vertex_idx] /= l2norm(vertex_normals[vertex_idx])
+        return vertex_normals
 
     def rebuild_surface(self, vertices: np.ndarray):
         """
@@ -97,10 +188,7 @@ class BrainExtractor:
 
     @staticmethod
     @jit(nopython=True, cache=True)
-    def update_surf_attr(vertices: np.ndarray, normals: np.ndarray, neighbors_idx: list):
-        # get normals as contiguous in memory
-        normals = np.ascontiguousarray(normals)
-
+    def update_surf_attr(vertices: np.ndarray, neighbors_idx: list):
         # the neighbors array is tricky because it doesn't
         # have the structure of a nice rectangular array
         # we initialize it to be the largest size (6) then we
@@ -120,24 +208,40 @@ class BrainExtractor:
             centroids[i,2] = np.mean(n[:s,2])
 
         # return optimized surface attributes
-        return normals, neighbors, neighbors_size, centroids
+        return neighbors, neighbors_size, centroids
 
     def update_surface_attributes(self):
         """
             Updates attributes related to the surface
         """
-        self.vertices = np.array(self.surface.vertices)
-        self.vertex_neighbors_idx = List([np.array(i) for i in self.surface.vertex_neighbors])
-        # self.vertex_neighbors_idx = List(self.surface.vertex_neighbors)
-        self.vertex_normals, self.vertex_neighbors, self.vertex_neighbors_size, \
-            self.vertex_neighbors_centroids = self.update_surf_attr(
+        self.triangles = self.vertices[self.faces]
+        self.face_normals = self.compute_face_normals(self.num_faces, self.faces, self.vertices)
+        self.face_angles = self.compute_face_angles(self.triangles)
+        self.vertex_normals = self.compute_vertex_normals(
+            self.num_vertices, self.faces, self.face_normals, self.face_angles, self.face_vertex_idxs)
+        self.vertex_neighbors, self.vertex_neighbors_size, self.vertex_neighbors_centroids = self.update_surf_attr(
                 self.vertices,
-                self.surface.vertex_normals,
                 self.vertex_neighbors_idx)
-        # self.vertex_neighbors = [np.vstack([self.vertices[v] for v in ni]) for ni in self.vertex_neighbors_idx]
-        # self.vertex_neighbors_centroids = np.vstack([np.mean(self.vertex_neighbors[i], axis=0) for i in range(self.num_vertices)])
-        # self.vertex_normals = np.ascontiguousarray(self.surface.vertex_normals)
-        # breakpoint()
+        self.l = self.get_mean_intervertex_distance(
+                self.vertices,
+                self.vertex_neighbors,
+                self.vertex_neighbors_size
+            )
+
+    @staticmethod
+    @jit(nopython=True, cache=True)
+    def get_mean_intervertex_distance(vertices: np.ndarray, neighbors: np.ndarray, sizes: np.ndarray):
+        """
+            Computes the mean intervertex distance across the entire surface
+        """
+        mivd = np.zeros(vertices.shape[0])
+        for v in range(vertices.shape[0]):
+            vecs = vertices[v] - neighbors[v,:sizes[v]]
+            vd = np.zeros(vecs.shape[0])
+            for i in range(vecs.shape[0]):
+                vd[i] = l2norm(vecs[i])
+            mivd[v] = np.mean(vd)
+        return np.mean(mivd)
 
     def run(self, iterations: int = 1000):
         """
@@ -150,6 +254,7 @@ class BrainExtractor:
             PMCID: PMC6871816.
 
         """
+        print("Running surface deformation...")
         # initialize s_vectors
         s_vectors = np.zeros(self.vertices.shape)
 
@@ -165,30 +270,23 @@ class BrainExtractor:
 
         # surface deformation loop
         for i in range(iterations):
-            print("Iteration: %d" % i)
-            # update the mean intervertex distances at intervals of 100 (and iteration 50)
-            if i % 100 == 0 or i == 50:
-                # l = self.get_mean_intervertex_distance()
-                l = self.get_mean_intervertex_distance(
-                    self.vertices,
-                    self.vertex_neighbors,
-                    self.vertex_neighbors_size
-                )
-                # print(l)
-                # breakpoint()
+            print("Iteration: %d" % i, end='\r')
             # run one step of deformation
             self.step_of_deformation(
                 self.data, self.vertices, self.vertex_normals,
                 self.vertex_neighbors_centroids,
-                l, self.t2, self.t, self.tm, self.t98,
+                self.l, self.t2, self.t, self.tm, self.t98,
                 self.E, self.F, self.bt, self.d1, self.d2,
                 s_vectors, s_n, s_t, u1, u2, u3, u
             )
-            # update the surface
-            self.rebuild_surface(self.vertices + u)
+            # update vertices
+            self.vertices += u
+            self.update_surface_attributes()
 
-        # fix self intersections
-        
+        # update the surface
+        self.rebuild_surface(self.vertices)
+        print()
+        print("Complete.")
 
     @staticmethod
     @jit(nopython=True, cache=True)
@@ -251,12 +349,12 @@ class BrainExtractor:
             # get Imin/Imax
             linedata1 = [data[d[0],d[1],d[2]] for d in i1]
             linedata1.append(tm)
-            linedata1 = np.array(linedata1)
-            Imin = np.max(np.array([t2, np.min(linedata1)]))
+            linedata1 = np.asarray(linedata1)
+            Imin = np.max(np.asarray([t2, np.min(linedata1)]))
             linedata2 = [data[d[0],d[1],d[2]] for d in i2]
             linedata2.append(t)
-            linedata2 = np.array(linedata2)
-            Imax = np.min(np.array([tm, np.max(linedata2)]))
+            linedata2 = np.asarray(linedata2)
+            Imax = np.min(np.asarray([tm, np.max(linedata2)]))
 
             # get tl
             tl = (Imax - t2)*bt + t2
@@ -269,39 +367,6 @@ class BrainExtractor:
 
         # get displacement vector
         u[:,:] = u1 + u2 + u3
-
-    # def get_mean_intervertex_distance(self):
-    #     """
-    #         Computes the mean intervertex distance across the entire surface
-    #     """
-    #     # Compute the mean intervertex distance
-    #     return np.mean([self.compute_mlid(self.vertices[i] - self.vertex_neighbors[i]) for i in range(self.num_vertices)])
-
-    @staticmethod
-    @jit(nopython=True, cache=True)
-    def get_mean_intervertex_distance(vertices: np.ndarray, neighbors: np.ndarray, sizes: np.ndarray):
-        """
-            Computes the mean intervertex distance across the entire surface
-        """
-        mivd = np.zeros(vertices.shape[0])
-        for v in range(vertices.shape[0]):
-            vecs = vertices[v] - neighbors[v,:sizes[v]]
-            vd = np.zeros(vecs.shape[0])
-            for i in range(vecs.shape[0]):
-                vd[i] = l2norm(vecs[i])
-            mivd[v] = np.mean(vd)
-        return np.mean(mivd)
-
-    # @staticmethod
-    # @jit(nopython=True, cache=True)
-    # def compute_mlid(vecs: np.ndarray):
-    #     """
-    #         Computes the mean local intervertex distance
-    #     """
-    #     result = list()
-    #     for i in range(vecs.shape[0]): # pylint: disable=not-an-iterable
-    #         result.append(l2norm(vecs[i]))
-    #     return np.mean(np.array(result))
 
     def compute_mask(self):
         """

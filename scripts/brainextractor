@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+
+import argparse
+from brainextractor import BrainExtractor
+
+if __name__ == '__main__':
+    # create command line parser
+    parser = argparse.ArgumentParser(
+        description='A Reimplementation of FSL\'s Brain Extraction Tool',
+        epilog='Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020')
+    parser.add_argument('input_img', help='Input image to brain extract')
+    parser.add_argument('output_img', help='Output image to write out')
+    parser.add_argument('-n', '--iterations', )

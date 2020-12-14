@@ -191,3 +191,21 @@ def l2norm(vec: np.ndarray):
         Computes the l2 norm for 3d vector
     """
     return np.sqrt(vec[0]**2 + vec[1]**2 + vec[2]**2)
+
+@jit(nopython=True, cache=True)
+def l2normarray(array: np.ndarray):
+    """
+        Computes the l2 norm for several 3d vectors
+    """
+    return np.sqrt(array[:, 0]**2 + array[:, 1]**2 + array[:, 2]**2)
+
+def diagonal_dot(a, b):
+    """
+        Dot product by row of a and b.
+        There are a lot of ways to do this though
+        performance varies very widely. This method
+        uses a dot product to sum the row and avoids
+        function calls if at all possible.
+    """
+    a = np.asanyarray(a)
+    return np.dot(a * b, [1.0] * a.shape[1])
