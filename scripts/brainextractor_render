@@ -5,25 +5,34 @@ import argparse
 import trimesh
 import pyrender
 import time
+import zipfile
 
 def render(surface_path: str, video_path: str = None, loop: bool = False):
     """
         Create rendering of surface deformation
     """
+    # open surfaces file
+    surface_dir = os.path.dirname(surface_path)
+    surfaces = zipfile.ZipFile(surface_path, 'r')
+
     # get surface list
-    surface_list = os.listdir(surface_path)
+    surface_list = surfaces.namelist()
     iterations = len(surface_list)
 
     # get center of mesh (use first surface file)
+    surfaces.extract(surface_list[0], path=surface_dir)
     mesh = pyrender.Mesh.from_trimesh(trimesh.load(
-        os.path.join(surface_path, surface_list[0])))
+        os.path.join(surface_dir, surface_list[0])))
     center = mesh.centroid
+    os.remove(os.path.join(surface_dir, surface_list[0]))
 
     # read in surfaces
     nodes = list()
-    for mesh_path in os.listdir(surface_path):
+    for mesh_path in surface_list:
+        surfaces.extract(mesh_path, path=surface_dir)
         print("Reading in surface data: %s" % mesh_path, end="\r")
-        mesh = trimesh.load(os.path.join(surface_path, mesh_path))
+        mesh = trimesh.load(os.path.join(surface_dir, mesh_path))
+        os.remove(os.path.join(surface_dir, mesh_path))
         mesh.apply_transform([
             [1,0,0,-center[0]],
             [0,1,0,-center[1]],
@@ -102,7 +111,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Renders surface deformation evolution',
         epilog='Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020')
-    parser.add_argument('surfaces', help='Directory to display surfaces')
+    parser.add_argument('surfaces', help='Surfaces to render')
     parser.add_argument('-s', '--save_mp4', help='Saves an mp4 output')
     parser.add_argument('-l', '--loop', action='store_true', help='Loop the render (1 hour)')
 

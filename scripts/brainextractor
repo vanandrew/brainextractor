@@ -48,8 +48,11 @@ if __name__ == '__main__':
     # create output path for surface files if defined
     if args.write_surface_deform:
         deformation_path = os.path.abspath(args.write_surface_deform)
-        shutil.rmtree(deformation_path, ignore_errors=True)
-        os.makedirs(deformation_path, exist_ok=True)
+        try:
+            os.remove(deformation_path)
+        except FileNotFoundError:
+            pass
+        os.makedirs(os.path.dirname(deformation_path), exist_ok=True)
 
     # run brain extractor
     bet.run(

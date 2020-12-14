@@ -280,6 +280,11 @@ class BrainExtractor:
         u3 = np.zeros(self.vertices.shape)
         u = np.zeros(self.vertices.shape)
 
+        # if deformation path defined
+        if deformation_path:
+            import zipfile
+            zip_file = zipfile.ZipFile(deformation_path, 'w')
+
         # surface deformation loop
         for i in range(iterations):
             print("Iteration: %d" % i, end='\r')
@@ -293,12 +298,19 @@ class BrainExtractor:
             )
             # update vertices
             self.vertices += u
-            if deformation_path:
+            if deformation_path: # write to stl if enabled
                 surface_file = 'surface{:0>5d}.stl'.format(i)
+                dirpath = os.path.dirname(deformation_path)
                 self.rebuild_surface()
-                self.save_surface(os.path.join(deformation_path, surface_file))
-            else:
+                self.save_surface(os.path.join(dirpath, surface_file))
+                zip_file.write(os.path.join(dirpath, surface_file), surface_file)
+                os.remove(os.path.join(dirpath, surface_file))
+            else: # just update the surface attributes
                 self.update_surface_attributes()
+
+        # close zip file
+        if deformation_path:
+            zip_file.close()
 
         # update the surface
         self.rebuild_surface()
