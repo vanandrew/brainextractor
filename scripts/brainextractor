@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 import argparse
 import nibabel as nib 
 from brainextractor import BrainExtractor
@@ -12,6 +13,8 @@ if __name__ == '__main__':
         epilog='Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020')
     parser.add_argument('input_img', help='Input image to brain extract')
     parser.add_argument('output_img', help='Output image to write out')
+    parser.add_argument('-w', '--write_surface_deform',
+        help='Path to write out surface files at each deformation step')
     parser.add_argument('-f', '--fractional_threshold', type=float, default=0.5,
         help='Main threshold parameter for controlling brain/background (Default: 0.5)')
     parser.add_argument('-n', '--iterations', type=int, default=1000,
@@ -22,8 +25,6 @@ if __name__ == '__main__':
         help='Sets search distance for max/min of image along vertex normals (Default: 20.0, 10.0)')
     parser.add_argument('-r', '--radius_of_curvatures', nargs=2, type=float, default=[3.33, 10.0],
         help='Sets min/max radius of curvature for surface (Default: 3.33, 10.0)')
-    parser.add_argument('-w', '--write_surface_deform',
-        help='Path to write out surface files at each deformation step')
 
     # parse arguments
     args = parser.parse_args()
@@ -46,14 +47,22 @@ if __name__ == '__main__':
 
     # create output path for surface files if defined
     if args.write_surface_deform:
-        os.makedirs(args.write_surface_deform, exist_ok=True)
+        deformation_path = os.path.abspath(args.write_surface_deform)
+        shutil.rmtree(deformation_path, ignore_errors=True)
+        os.makedirs(deformation_path, exist_ok=True)
 
     # run brain extractor
-    bet.run(iterations=args.iterations, deformation_path=args.write_surface_deform)
+    bet.run(
+        iterations=args.iterations,
+        deformation_path=deformation_path if args.write_surface_deform else None
+        )
+
 
     # make dirs to output directory as needed
     output_img = os.path.abspath(args.output_img)
     os.makedirs(os.path.dirname(output_img), exist_ok=True)
 
-    # write mask to file 
+    # write mask to file
+    print("Saving mask...")
     bet.save_mask(output_img)
+    print("Mask saved.")

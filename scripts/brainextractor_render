@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+import trimesh
+import pyrender
+import time
+
+def render(surface_path: str, video_path: str = None):
+    """
+        Create rendering of surface deformation
+    """
+    # get surface list
+    surface_list = os.listdir(surface_path)
+    iterations = len(surface_list)
+
+    # get center of mesh (use first surface file)
+    mesh = pyrender.Mesh.from_trimesh(trimesh.load(
+        os.path.join(surface_path, surface_list[0])))
+    center = mesh.centroid
+
+    # read in surfaces
+    nodes = list()
+    for mesh_path in os.listdir(surface_path):
+        print("Reading in surface data: %s" % mesh_path, end="\r")
+        mesh = trimesh.load(os.path.join(surface_path, mesh_path))
+        mesh.apply_transform([
+            [1,0,0,-center[0]],
+            [0,1,0,-center[1]],
+            [0,0,1,-center[2]],
+            [0,0,0,1]
+        ])
+        dm = pyrender.Mesh.from_trimesh(mesh)
+        node = pyrender.Node(
+            scale=[0.01,0.01,0.01],
+            mesh=dm)
+        nodes.append(node)
+    print("")
+
+    # create scene
+    scene = pyrender.Scene(
+        bg_color=[0,0,0,0]
+    )
+    v = pyrender.Viewer(scene,
+        viewport_size=(1280,720),
+        use_direct_lighting=True,
+        all_wireframe=True,
+        run_in_thread=True,
+        caption=[{
+                "location": 3,
+                "text": "",
+                "font_name": "OpenSans-Regular",
+                "font_pt": 40,
+                "color": [200,200,200,255],
+                "scale": 1.0,
+                "align": 0
+            }],
+        record=bool(video_path),
+        rotate=True,
+        rotate_rate=0.25,
+        rotate_axis=[0,1,0]
+        )
+
+    # display surfaces frame by frame
+    try:
+        for i in range(iterations):
+            it = "Iteration %d" % i
+            print(it, end='\r')
+            v.render_lock.acquire()
+            v.viewer_flags['caption'][0]["text"] = it
+            if i > 0:
+                scene.remove_node(nodes[i-1])
+            scene.add_node(nodes[i])
+            v.render_lock.release()
+            time.sleep(0.033333333333333)
+        v.close_external()
+        if video_path:
+            dirpath = os.path.dirname(video_path)
+            os.makedirs(dirpath, exist_ok=True)
+            print("Saving video to file...")
+            v.save_gif(os.path.join(dirpath, "temp.gif"))
+            os.system("ffmpeg -i {} {}".format(
+                os.path.join(dirpath, "temp.gif"),
+                video_path
+            ))
+            os.remove(os.path.join(dirpath, "temp.gif"))
+            print("{} successfully saved.".format(os.path.basename(video_path)))
+    except KeyboardInterrupt:
+        pass
+    print("")
+
+if __name__ == '__main__':
+    # create command line parser
+    parser = argparse.ArgumentParser(
+        description='Renders surface deformation evolution',
+        epilog='Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020')
+    parser.add_argument('surfaces', help='Directory to display surfaces')
+    parser.add_argument('-s', '--save_mp4', help='Saves an mp4 output')
+
+    # parse arguments
+    args = parser.parse_args()
+
+    # call render function
+    render(
+        surface_path=os.path.abspath(args.surfaces),
+        video_path=os.path.abspath(args.save_mp4) if args.save_mp4 else None
+    )

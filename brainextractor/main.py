@@ -1,6 +1,7 @@
 """
     Main BrainExtractor class
 """
+import os
 import warnings
 import numpy as np
 import nibabel as nib
@@ -194,8 +195,8 @@ class BrainExtractor:
         """
             Rebuilds the surface mesh for given updated vertices
         """
-        self.surface = trimesh.Trimesh(vertices=self.vertices, faces=self.surface.faces)
         self.update_surface_attributes()
+        self.surface = trimesh.Trimesh(vertices=self.vertices, faces=self.faces)
 
     @staticmethod
     @jit(nopython=True, cache=True)
@@ -293,8 +294,9 @@ class BrainExtractor:
             # update vertices
             self.vertices += u
             if deformation_path:
-                self.rebuild_surface() # this is slow...
-                self.save_surface(deformation_path)
+                surface_file = 'surface{:0>5d}.stl'.format(i)
+                self.rebuild_surface()
+                self.save_surface(os.path.join(deformation_path, surface_file))
             else:
                 self.update_surface_attributes()
 

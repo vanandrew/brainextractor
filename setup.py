@@ -17,6 +17,7 @@ setup(
         'nibabel>=3.2.1'
     ],
     scripts=[
-        'scripts/brainextractor'
+        'scripts/brainextractor',
+        'scripts/brainextractor_render'
     ]
 )
