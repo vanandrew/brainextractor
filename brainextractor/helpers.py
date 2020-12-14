@@ -199,7 +199,7 @@ def l2normarray(array: np.ndarray):
     """
     return np.sqrt(array[:, 0]**2 + array[:, 1]**2 + array[:, 2]**2)
 
-def diagonal_dot(a, b):
+def diagonal_dot(a: np.ndarray, b: np.ndarray):
     """
         Dot product by row of a and b.
         There are a lot of ways to do this though

@@ -1,8 +1,9 @@
 """
     Main BrainExtractor class
 """
-import nibabel as nib
+import warnings
 import numpy as np
+import nibabel as nib
 import trimesh
 from numba import jit, prange
 from numba.typed import List
@@ -39,12 +40,19 @@ class BrainExtractor:
         """
         print("Initializing...")
 
+        # get image resolution
+        res = img.header['pixdim'][1]
+        if not np.allclose(res, img.header['pixdim'][1:4], rtol=1e-3):
+            warnings.warn("The voxels in this image are non-isotropic! \
+                Brain extraction settings may not be valid!")
+
         # store brain extraction parameters
+        print("Parameters: bt=%f, d1=%f, d2=%f, rmin=%f, rmax=%f" % (bt, d1, d2, rmin, rmax))
         self.bt = bt
-        self.d1 = d1
-        self.d2 = d2
-        self.rmin = rmin
-        self.rmax = rmax
+        self.d1 = d1/res
+        self.d2 = d2/res
+        self.rmin = rmin/res
+        self.rmax = rmax/res
 
         # compute E, F constants
         self.E = (1.0/rmin + 1.0/rmax)/2.0
@@ -127,7 +135,7 @@ class BrainExtractor:
         return face_normals
 
     @staticmethod
-    def compute_face_angles(triangles):
+    def compute_face_angles(triangles: np.ndarray):
         """
             Compute angles in triangles of each face
         """
@@ -166,6 +174,9 @@ class BrainExtractor:
         ):
         """
             Computes vertex normals
+
+            Sums face normals connected to vertex, weighting
+            by the angle the vertex makes with the face
         """
         vertex_normals = np.zeros((num_vertices, 3))
         for vertex_idx in range(num_vertices):
@@ -179,11 +190,11 @@ class BrainExtractor:
             vertex_normals[vertex_idx] /= l2norm(vertex_normals[vertex_idx])
         return vertex_normals
 
-    def rebuild_surface(self, vertices: np.ndarray):
+    def rebuild_surface(self):
         """
             Rebuilds the surface mesh for given updated vertices
         """
-        self.surface = trimesh.Trimesh(vertices=vertices, faces=self.surface.faces)
+        self.surface = trimesh.Trimesh(vertices=self.vertices, faces=self.surface.faces)
         self.update_surface_attributes()
 
     @staticmethod
@@ -243,7 +254,7 @@ class BrainExtractor:
             mivd[v] = np.mean(vd)
         return np.mean(mivd)
 
-    def run(self, iterations: int = 1000):
+    def run(self, iterations: int = 1000, deformation_path: str = None):
         """
             Runs the extraction step.
 
@@ -281,11 +292,15 @@ class BrainExtractor:
             )
             # update vertices
             self.vertices += u
-            self.update_surface_attributes()
+            if deformation_path:
+                self.rebuild_surface() # this is slow...
+                self.save_surface(deformation_path)
+            else:
+                self.update_surface_attributes()
 
         # update the surface
-        self.rebuild_surface(self.vertices)
-        print()
+        self.rebuild_surface()
+        print("")
         print("Complete.")
 
     @staticmethod
@@ -372,15 +387,13 @@ class BrainExtractor:
         """
             Convert surface mesh to volume
         """
-        if not hasattr(self, "mask"):
-            # self.mask = find_enclosure(self.surface, self.shape)
-            vol = self.surface.voxelized(1)
-            vol = vol.fill()
-            self.mask = np.zeros(self.shape)
-            self.mask[
-                int(vol.bounds[0,0]):int(vol.bounds[1,0]),
-                int(vol.bounds[0,1]):int(vol.bounds[1,1]),
-                int(vol.bounds[0,2]):int(vol.bounds[1,2])] = vol.matrix
+        vol = self.surface.voxelized(1)
+        vol = vol.fill()
+        self.mask = np.zeros(self.shape)
+        self.mask[
+            int(vol.bounds[0,0]):int(vol.bounds[1,0]),
+            int(vol.bounds[0,1]):int(vol.bounds[1,1]),
+            int(vol.bounds[0,2]):int(vol.bounds[1,2])] = vol.matrix
         return self.mask
 
     def save_mask(self, filename: str):
