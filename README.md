@@ -33,11 +33,10 @@ optional arguments:
                         Sets min/max radius of curvature for surface (Default: 3.33, 10.0)
 
 Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020
-
 ```
 
 ```
-usage: brainextractor_render [-h] [-s SAVE_MP4] surfaces
+usage: brainextractor_render [-h] [-s SAVE_MP4] [-l] surfaces
 
 Renders surface deformation evolution
 
@@ -48,7 +47,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -s SAVE_MP4, --save_mp4 SAVE_MP4
                         Saves an mp4 output
+  -l, --loop            Loop the render (1 hour)
 
 Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020
-
 ```

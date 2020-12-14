@@ -6,7 +6,7 @@ import trimesh
 import pyrender
 import time
 
-def render(surface_path: str, video_path: str = None):
+def render(surface_path: str, video_path: str = None, loop: bool = False):
     """
         Create rendering of surface deformation
     """
@@ -62,32 +62,40 @@ def render(surface_path: str, video_path: str = None):
         )
 
     # display surfaces frame by frame
+    iteration_limit = iterations
+    if loop:
+        iterations *= int(3600/(iterations * 0.033333333333333))
     try:
         for i in range(iterations):
-            it = "Iteration %d" % i
+            c = i - (i // iteration_limit) * 1000
+            it = "Iteration %d" % c
             print(it, end='\r')
             v.render_lock.acquire()
             v.viewer_flags['caption'][0]["text"] = it
-            if i > 0:
-                scene.remove_node(nodes[i-1])
-            scene.add_node(nodes[i])
+            if c > 0:
+                scene.remove_node(nodes[c-1])
+            elif i > 0 and i % 1000 == 0:
+                scene.remove_node(nodes[iteration_limit-1])
+            scene.add_node(nodes[c])
             v.render_lock.release()
             time.sleep(0.033333333333333)
         v.close_external()
-        if video_path:
-            dirpath = os.path.dirname(video_path)
-            os.makedirs(dirpath, exist_ok=True)
-            print("Saving video to file...")
-            v.save_gif(os.path.join(dirpath, "temp.gif"))
-            os.system("ffmpeg -i {} {}".format(
-                os.path.join(dirpath, "temp.gif"),
-                video_path
-            ))
-            os.remove(os.path.join(dirpath, "temp.gif"))
-            print("{} successfully saved.".format(os.path.basename(video_path)))
     except KeyboardInterrupt:
         pass
     print("")
+
+    # save video
+    if video_path:
+        dirpath = os.path.dirname(video_path)
+        os.makedirs(dirpath, exist_ok=True)
+        print("Saving video to file...")
+        v.save_gif(os.path.join(dirpath, "temp.gif"))
+        os.system("ffmpeg -i {} {}".format(
+            os.path.join(dirpath, "temp.gif"),
+            video_path
+        ))
+        os.remove(os.path.join(dirpath, "temp.gif"))
+        print("{} successfully saved.".format(os.path.basename(video_path)))
 
 if __name__ == '__main__':
     # create command line parser
@@ -96,6 +104,7 @@ if __name__ == '__main__':
         epilog='Author: Andrew Van, vanandrew@wustl.edu, 12/15/2020')
     parser.add_argument('surfaces', help='Directory to display surfaces')
     parser.add_argument('-s', '--save_mp4', help='Saves an mp4 output')
+    parser.add_argument('-l', '--loop', action='store_true', help='Loop the render (1 hour)')
 
     # parse arguments
     args = parser.parse_args()
@@ -103,5 +112,6 @@ if __name__ == '__main__':
     # call render function
     render(
         surface_path=os.path.abspath(args.surfaces),
-        video_path=os.path.abspath(args.save_mp4) if args.save_mp4 else None
+        video_path=os.path.abspath(args.save_mp4) if args.save_mp4 else None,
+        loop=args.loop
     )
