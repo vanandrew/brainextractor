@@ -46,7 +46,7 @@ brainextractor [input_image] [output_image] -w [surfaces_file]
 brainextractor_render [surfaces_file]
 ```
 
-If you need to an explanation of the options at any time, simply run the help:
+If you need an explanation of the options at any time, simply run the help:
 
 ```
 brainextractor --help
