@@ -60,7 +60,6 @@ if __name__ == '__main__':
         deformation_path=deformation_path if args.write_surface_deform else None
         )
 
-
     # make dirs to output directory as needed
     output_img = os.path.abspath(args.output_img)
     os.makedirs(os.path.dirname(output_img), exist_ok=True)
