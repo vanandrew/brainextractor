@@ -76,14 +76,14 @@ def render(surface_path: str, video_path: str = None, loop: bool = False):
         iterations *= int(3600/(iterations * 0.033333333333333))
     try:
         for i in range(iterations):
-            c = i - (i // iteration_limit) * 1000
+            c = i - (i // iteration_limit) * iteration_limit
             it = "Iteration %d" % c
             print(it, end='\r')
             v.render_lock.acquire()
             v.viewer_flags['caption'][0]["text"] = it
             if c > 0:
                 scene.remove_node(nodes[c-1])
-            elif i > 0 and i % 1000 == 0:
+            elif i > 0 and i % iteration_limit == 0:
                 scene.remove_node(nodes[iteration_limit-1])
             scene.add_node(nodes[c])
             v.render_lock.release()
