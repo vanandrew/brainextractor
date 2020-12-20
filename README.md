@@ -15,6 +15,9 @@ To install, simply use `pip` to install this repo:
 ```
 # install repo with pip
 pip install git+https://github.com/vanandrew/brainextractor@main
+
+# install from local copy
+pip install /path/to/local/repo
 ```
 
 Note that is reccomended to use `brainextractor` on python 3.7+
