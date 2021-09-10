@@ -26,7 +26,7 @@ class BrainExtractor:
     def __init__(self,
         img: nib.Nifti1Image,
         t02t: float = 0.02,
-        t98t: float = 0.98, 
+        t98t: float = 0.98,
         bt: float = 0.5,
         d1: float = 20.0, # mm
         d2: float = 10.0, # mm
@@ -110,7 +110,7 @@ class BrainExtractor:
         for v in range(self.num_vertices):
             f, i = np.asarray(self.faces == v).nonzero()
             self.face_vertex_idxs[v, :i.shape[0], 0] = f
-            self.face_vertex_idxs[v, :i.shape[0], 1] = i 
+            self.face_vertex_idxs[v, :i.shape[0], 1] = i
             if i.shape[0] == 5:
                 self.face_vertex_idxs[v, 5, 0] = -1
                 self.face_vertex_idxs[v, 5, 1] = -1
@@ -129,8 +129,8 @@ class BrainExtractor:
             a = local_v[1]-local_v[0]
             b = local_v[2]-local_v[0]
             face_normals[i] = np.array((
-                a[1]*b[2]-a[2]*b[1], 
-                a[2]*b[0]-a[0]*b[2], 
+                a[1]*b[2]-a[2]*b[1],
+                a[2]*b[0]-a[0]*b[2],
                 a[0]*b[1]-a[1]*b[0]))
             face_normals[i] /= l2norm(face_normals[i])
         return face_normals
@@ -404,10 +404,37 @@ class BrainExtractor:
         vol = self.surface.voxelized(1)
         vol = vol.fill()
         self.mask = np.zeros(self.shape)
-        self.mask[
-            int(vol.bounds[0,0]):int(vol.bounds[1,0]),
-            int(vol.bounds[0,1]):int(vol.bounds[1,1]),
-            int(vol.bounds[0,2]):int(vol.bounds[1,2])] = vol.matrix
+        bounds = vol.bounds
+
+        # adjust bounds to handle data outside the field of view
+        x_min = int(vol.bounds[0,0]+0.5)
+        x_max = int(vol.bounds[1,0]-0.5)+1
+        y_min = int(vol.bounds[0,1]+0.5)
+        y_max = int(vol.bounds[1,1]-0.5)+1
+        z_min = int(vol.bounds[0,2]+0.5)
+        z_max = int(vol.bounds[1,2]-0.5)+1
+        x_start = 0; y_start = 0; z_start = 0
+        x_end = int(self.shape[0]); y_end = int(self.shape[1]); z_end = int(self.shape[2])
+        if (x_min < 0):
+            x_start = -x_min
+            x_min = 0
+        if (x_max > x_end):
+            x_end = vol.extents[0] - (x_max - x_end)
+            x_max = self.shape[0]
+        if (y_min < 0):
+            y_start = -y_min
+            y_min = 0
+        if (y_max > y_end):
+            y_end = vol.extents[1] - (y_max - y_end)
+            y_max = self.shape[1]
+        if (z_min < 0):
+            z_start = -z_min
+            z_min = 0
+        if (z_max > z_end):
+            z_end = vol.extents[2] - (z_max - z_end)
+            z_max = self.shape[2]
+
+        self.mask[x_min:x_max,y_min:y_max,z_min:z_max] = vol.matrix[x_start:x_end,y_start:y_end,z_start:z_end]
         return self.mask
 
     def save_mask(self, filename: str):
@@ -422,3 +449,4 @@ class BrainExtractor:
             Save surface in .stl
         """
         self.surface.export(filename)
+

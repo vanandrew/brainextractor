@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name='BrainExtractor',
-    version='development',
+    version='0.0.0',
     description='A re-implementation of FSL\'s Brain Extraction Tool in Python',
     author='Andrew Van',
     author_email='vanandrew@wustl.edu',
