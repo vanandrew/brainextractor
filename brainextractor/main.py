@@ -397,6 +397,16 @@ class BrainExtractor:
         # get displacement vector
         u[:,:] = u1 + u2 + u3
 
+    @staticmethod
+    def check_bound(img_min: int, img_max: int, img_start: int, img_end: int, vol_start: int, vol_end: int):
+        if img_min < img_start:
+            vol_start = vol_start + (img_start - img_min)
+            img_min = 0
+        if img_max > img_end:
+            vol_end = vol_end - (img_max - img_end)
+            img_max = img_end
+        return img_min, img_max, img_start, img_end, vol_start, vol_end
+
     def compute_mask(self):
         """
             Convert surface mesh to volume
@@ -407,34 +417,37 @@ class BrainExtractor:
         bounds = vol.bounds
 
         # adjust bounds to handle data outside the field of view
-        x_min = int(vol.bounds[0,0]+0.5)
-        x_max = int(vol.bounds[1,0]-0.5)+1
-        y_min = int(vol.bounds[0,1]+0.5)
-        y_max = int(vol.bounds[1,1]-0.5)+1
-        z_min = int(vol.bounds[0,2]+0.5)
-        z_max = int(vol.bounds[1,2]-0.5)+1
-        x_start = 0; y_start = 0; z_start = 0
-        x_end = int(self.shape[0]); y_end = int(self.shape[1]); z_end = int(self.shape[2])
-        if (x_min < 0):
-            x_start = -x_min
-            x_min = 0
-        if (x_max > x_end):
-            x_end = vol.extents[0] - (x_max - x_end)
-            x_max = self.shape[0]
-        if (y_min < 0):
-            y_start = -y_min
-            y_min = 0
-        if (y_max > y_end):
-            y_end = vol.extents[1] - (y_max - y_end)
-            y_max = self.shape[1]
-        if (z_min < 0):
-            z_start = -z_min
-            z_min = 0
-        if (z_max > z_end):
-            z_end = vol.extents[2] - (z_max - z_end)
-            z_max = self.shape[2]
 
-        self.mask[x_min:x_max,y_min:y_max,z_min:z_max] = vol.matrix[x_start:x_end,y_start:y_end,z_start:z_end]
+        # get the bounds of the volumized surface mesh
+        x_min = int(vol.bounds[0, 0]) if vol.bounds[0, 0] > 0 else int(vol.bounds[0, 0]) - 1
+        x_max = int(vol.bounds[1, 0]) if vol.bounds[1, 0] > 0 else int(vol.bounds[1, 0]) - 1
+        y_min = int(vol.bounds[0, 1]) if vol.bounds[0, 1] > 0 else int(vol.bounds[0, 1]) - 1
+        y_max = int(vol.bounds[1, 1]) if vol.bounds[1, 1] > 0 else int(vol.bounds[1, 1]) - 1
+        z_min = int(vol.bounds[0, 2]) if vol.bounds[0, 2] > 0 else int(vol.bounds[0, 2]) - 1
+        z_max = int(vol.bounds[1, 2]) if vol.bounds[1, 2] > 0 else int(vol.bounds[1, 2]) - 1
+
+        # get the extents of the original image
+        x_start = 0
+        y_start = 0
+        z_start = 0
+        x_end = int(self.shape[0])
+        y_end = int(self.shape[1])
+        z_end = int(self.shape[2])
+
+        # get the extents of the volumized surface
+        x_vol_start = 0
+        y_vol_start = 0
+        z_vol_start = 0
+        x_vol_end = int(vol.matrix.shape[0])
+        y_vol_end = int(vol.matrix.shape[1])
+        z_vol_end = int(vol.matrix.shape[2])
+
+        # if the volumized surface mesh is outside the extents of the original image
+        # we need to crop this volume to fit the image
+        x_min, x_max, x_start, x_end, x_vol_start, x_vol_end = self.check_bound(x_min, x_max, x_start, x_end, x_vol_start, x_vol_end)
+        y_min, y_max, y_start, y_end, y_vol_start, y_vol_end = self.check_bound(y_min, y_max, y_start, y_end, y_vol_start, y_vol_end)
+        z_min, z_max, z_start, z_end, z_vol_start, z_vol_end = self.check_bound(z_min, z_max, z_start, z_end, z_vol_start, z_vol_end)
+        self.mask[x_min:x_max, y_min:y_max, z_min:z_max] = vol.matrix[x_vol_start:x_vol_end, y_vol_start:y_vol_end, z_vol_start:z_vol_end]
         return self.mask
 
     def save_mask(self, filename: str):
