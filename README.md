@@ -13,6 +13,9 @@ Smith SM. Fast robust automated brain extraction. Hum Brain Mapp.
 To install, simply use `pip` to install this repo:
 
 ```
+# install from pypispheresphere
+pip install brainextractor
+
 # install repo with pip
 pip install git+https://github.com/vanandrew/brainextractor@main
 
@@ -20,7 +23,7 @@ pip install git+https://github.com/vanandrew/brainextractor@main
 pip install /path/to/local/repo
 ```
 
-Note that is reccomended to use `brainextractor` on python 3.7+
+Note that it is recommended to use `brainextractor` on python 3.7+
 
 ## Usage
 
