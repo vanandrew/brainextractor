@@ -8,6 +8,8 @@ Smith SM. Fast robust automated brain extraction. Hum Brain Mapp.
 2002 Nov;17(3):143-55. doi: 10.1002/hbm.10062. PMID: 12391568; PMCID: PMC6871816.
 ```
 
+https://user-images.githubusercontent.com/3641187/190677589-be019bc6-60e4-4e96-8c71-266285ab0755.mp4
+
 ## Install
 
 To install, simply use `pip` to install this repo:
