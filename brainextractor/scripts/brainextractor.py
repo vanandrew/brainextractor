@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-import shutil
 import argparse
 import nibabel as nib
-from brainextractor import BrainExtractor
+from brainextractor.main import BrainExtractor
 
 
 def main():
