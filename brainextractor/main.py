@@ -11,6 +11,9 @@ from numba.typed import List
 from .helpers import sphere, closest_integer_point, bresenham3d, l2norm, l2normarray, diagonal_dot
 
 
+print("DEBUG Version")
+
+
 class BrainExtractor:
     """
     Implemenation of the FSL Brain Extraction Tool
@@ -119,7 +122,7 @@ class BrainExtractor:
         print("Brain extractor initialization complete!")
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    # @jit(nopython=True, cache=True)
     def compute_face_normals(num_faces, faces, vertices):
         """
         Compute face normals
@@ -165,7 +168,7 @@ class BrainExtractor:
         return result
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    # @jit(nopython=True, cache=True)
     def compute_vertex_normals(
         num_vertices: int,
         faces: np.ndarray,
@@ -196,7 +199,7 @@ class BrainExtractor:
         self.surface = trimesh.Trimesh(vertices=self.vertices, faces=self.faces)
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    # @jit(nopython=True, cache=True)
     def update_surf_attr(vertices: np.ndarray, neighbors_idx: list):
         # the neighbors array is tricky because it doesn't
         # have the structure of a nice rectangular array
@@ -235,7 +238,7 @@ class BrainExtractor:
         self.l = self.get_mean_intervertex_distance(self.vertices, self.vertex_neighbors, self.vertex_neighbors_size)
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    # @jit(nopython=True, cache=True)
     def get_mean_intervertex_distance(vertices: np.ndarray, neighbors: np.ndarray, sizes: np.ndarray):
         """
         Computes the mean intervertex distance across the entire surface
@@ -329,7 +332,7 @@ class BrainExtractor:
         print("Complete.")
 
     @staticmethod
-    @jit(nopython=True, cache=True)
+    # @jit(nopython=True, cache=True)
     def step_of_deformation(
         data: np.ndarray,
         vertices: np.ndarray,
