@@ -1,5 +1,5 @@
 # brainextractor
-A reimplementation of FSL's Brain Extraction Tool in Python.
+A re-implementation of FSL's Brain Extraction Tool in Python.
 
 Follows the algorithm as described in:
 
@@ -8,11 +8,13 @@ Smith SM. Fast robust automated brain extraction. Hum Brain Mapp.
 2002 Nov;17(3):143-55. doi: 10.1002/hbm.10062. PMID: 12391568; PMCID: PMC6871816.
 ```
 
+This code was originally made for a [course project](https://www.cse.wustl.edu/~taoju/cse554/).
+
 https://user-images.githubusercontent.com/3641187/190677589-be019bc6-60e4-4e96-8c71-266285ab0755.mp4
 
 ## Install
 
-To install, simply use `pip` to install this repo:
+To install, use `pip` to install this repo:
 
 ```
 # install from pypi
@@ -25,7 +27,7 @@ pip install git+https://github.com/vanandrew/brainextractor@main
 pip install /path/to/local/repo
 ```
 
-Note that it is recommended to use `brainextractor` on python 3.7+
+> **__NOTE:__** It is recommended to use `brainextractor` on **Python 3.7+**
 
 ## Usage
 
@@ -49,8 +51,8 @@ brainextractor [input_image] [output_image] -f [threshold]
 brainextractor /path/to/test_image.nii.gz /path/to/some_output_image.nii.gz -f 0.4
 ```
 
-To view the deformation process, you can use the `-w` flag to write the
-surfaces to a file. Then use `brainextractor_render` to view them:
+To view the deformation process (as in the video above), you can use the `-w` flag to
+write the surfaces to a file. Then use `brainextractor_render` to view them:
 
 ```
 # writes surfaces to file
@@ -65,7 +67,7 @@ brainextractor /path/to/test_image.nii.gz /path/to/some_output_image.nii.gz -w /
 brainextractor_render /path/to/surface_file.surfaces
 ```
 
-If you need an explanation of the options at any time, simply run the help:
+If you need an explanation of the options at any time, simply run the `--help` flag:
 
 ```
 brainextractor --help
