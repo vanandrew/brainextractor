@@ -6,7 +6,7 @@ import warnings
 import numpy as np
 import nibabel as nib
 import trimesh
-from numba import jit, prange
+from numba import jit
 from numba.typed import List
 from .helpers import sphere, closest_integer_point, bresenham3d, l2norm, l2normarray, diagonal_dot
 
@@ -107,7 +107,7 @@ class BrainExtractor:
         self.faces = np.array(self.surface.faces)
         self.vertex_neighbors_idx = List([np.array(i) for i in self.surface.vertex_neighbors])
         # compute location of vertices in face array
-        self.face_vertex_idxs = np.zeros((self.num_vertices, 6, 2), dtype=np.int)
+        self.face_vertex_idxs = np.zeros((self.num_vertices, 6, 2), dtype=np.int64)
         for v in range(self.num_vertices):
             f, i = np.asarray(self.faces == v).nonzero()
             self.face_vertex_idxs[v, : i.shape[0], 0] = f

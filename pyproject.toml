@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
 urls = { github = "https://github.com/vanandrew/brainextractor" }
-version = "0.2.1"
+version = "0.2.2"
 dynamic = ["entry-points"]
 dependencies = [
     "numba >= 0.51.2",

@@ -27,11 +27,11 @@ pip install git+https://github.com/vanandrew/brainextractor@main
 pip install /path/to/local/repo
 ```
 
-> **__NOTE:__** It is recommended to use `brainextractor` on **Python 3.7+**
+> **__NOTE:__** It is recommended to use `brainextractor` on **Python 3.7** and above.
 
 ## Usage
 
-To extract a brain mask from a image, you can call:
+To extract a brain mask from an image, you can call:
 
 ```
 # basic usage
