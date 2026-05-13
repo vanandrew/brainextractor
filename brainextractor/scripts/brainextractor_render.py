@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
-import trimesh
-import pyrender
+import os
 import time
 import zipfile
+
+import pyrender
+import trimesh
 
 
 def render(surface_path: str, video_path: str = None, loop: bool = False):
@@ -30,7 +31,7 @@ def render(surface_path: str, video_path: str = None, loop: bool = False):
     nodes = list()
     for mesh_path in surface_list:
         surfaces.extract(mesh_path, path=surface_dir)
-        print("Reading in surface data: %s" % mesh_path, end="\r")
+        print(f"Reading in surface data: {mesh_path}", end="\r")
         mesh = trimesh.load(os.path.join(surface_dir, mesh_path))
         os.remove(os.path.join(surface_dir, mesh_path))
         mesh.apply_transform([[1, 0, 0, -center[0]], [0, 1, 0, -center[1]], [0, 0, 1, -center[2]], [0, 0, 0, 1]])
@@ -71,7 +72,7 @@ def render(surface_path: str, video_path: str = None, loop: bool = False):
     try:
         for i in range(iterations):
             c = i - (i // iteration_limit) * iteration_limit
-            it = "Iteration %d" % c
+            it = f"Iteration {c}"
             print(it, end="\r")
             v.render_lock.acquire()
             v.viewer_flags["caption"][0]["text"] = it
@@ -95,7 +96,7 @@ def render(surface_path: str, video_path: str = None, loop: bool = False):
         v.save_gif(os.path.join(dirpath, "temp.gif"))
         os.system("ffmpeg -i {} {}".format(os.path.join(dirpath, "temp.gif"), video_path))
         os.remove(os.path.join(dirpath, "temp.gif"))
-        print("{} successfully saved.".format(os.path.basename(video_path)))
+        print(f"{os.path.basename(video_path)} successfully saved.")
 
 
 def main():

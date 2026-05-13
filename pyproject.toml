@@ -2,7 +2,7 @@
 name = "brainextractor"
 description = "brain extraction in python"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [{ name = "Andrew Van", email = "vanandrew@wustl.edu" }]
 keywords = [
@@ -17,33 +17,68 @@ keywords = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: C++",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
 urls = { github = "https://github.com/vanandrew/brainextractor" }
 version = "0.2.2"
-dynamic = ["scripts"]
 dependencies = [
-    "numba >= 0.51.2",
-    "nibabel >= 3.2.1",
-    "trimesh >= 3.8.15",
-    "numpy >= 1.19.4",
-    "scipy >= 1.5.4",
-    "pyrender >= 0.1.43",
+    "numba >= 0.59.0",
+    "nibabel >= 5.0.0",
+    "trimesh >= 4.0.0",
+    "numpy >= 1.24.0",
+    "scipy >= 1.11.0",
+    "pyrender >= 0.1.45",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "black >= 22.0",
-]
+[project.scripts]
+brainextractor = "brainextractor.scripts.brainextractor:main"
+brainextractor_render = "brainextractor.scripts.brainextractor_render:main"
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools >= 61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 zip-safe = true
 
-[tool.black]
+[tool.setuptools.packages.find]
+include = ["brainextractor*"]
+
+[dependency-groups]
+dev = [
+    "ruff >= 0.8.0",
+    "pre-commit >= 3.7.0",
+    "pytest >= 8.0",
+    "pytest-cov >= 5.0",
+]
+
+[tool.ruff]
 line-length = 120
-target-version = ["py37", "py38", "py39", "py310"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E203",  # whitespace before ':'
+    "E741",  # ambiguous variable name (project uses single-letter math vars)
+    "E501",  # line-too-long (black handles this)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"

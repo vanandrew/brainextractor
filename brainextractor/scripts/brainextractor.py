@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 import argparse
+import os
+
 import nibabel as nib
+
 from brainextractor.main import BrainExtractor
 
 

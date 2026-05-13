@@ -1,14 +1,17 @@
 """
-    Main BrainExtractor class
+Main BrainExtractor class
 """
+
 import os
 import warnings
-import numpy as np
+
 import nibabel as nib
+import numpy as np
 import trimesh
 from numba import jit
 from numba.typed import List
-from .helpers import sphere, closest_integer_point, bresenham3d, l2norm, l2normarray, diagonal_dot
+
+from .helpers import bresenham3d, closest_integer_point, diagonal_dot, l2norm, l2normarray, sphere
 
 
 class BrainExtractor:
@@ -43,11 +46,12 @@ class BrainExtractor:
         if not np.allclose(res, img.header["pixdim"][1:4], rtol=1e-3):
             warnings.warn(
                 "The voxels in this image are non-isotropic! \
-                Brain extraction settings may not be valid!"
+                Brain extraction settings may not be valid!",
+                stacklevel=2,
             )
 
         # store brain extraction parameters
-        print("Parameters: bt=%f, d1=%f, d2=%f, rmin=%f, rmax=%f" % (bt, d1, d2, rmin, rmax))
+        print(f"Parameters: bt={bt:f}, d1={d1:f}, d2={d2:f}, rmin={rmin:f}, rmax={rmax:f}")
         self.bt = bt
         self.d1 = d1 / res
         self.d2 = d2 / res
@@ -74,7 +78,7 @@ class BrainExtractor:
         self.t98 = sorted_data[np.ceil(t98t * self.rshape).astype(np.int64) + 1]
         self.tmax = np.max(sorted_data)
         self.t = (self.t98 - self.t2) * 0.1 + self.t2
-        print("tmin: %f, t2: %f, t: %f, t98: %f, tmax: %f" % (self.tmin, self.t2, self.t, self.t98, self.tmax))
+        print(f"tmin: {self.tmin:f}, t2: {self.t2:f}, t: {self.t:f}, t98: {self.t98:f}, tmax: {self.tmax:f}")
 
         # find the center of mass of image
         ic, jc, kc = np.meshgrid(
@@ -85,7 +89,7 @@ class BrainExtractor:
         cj = np.average(jc.ravel(), weights=cdata)
         ck = np.average(kc.ravel(), weights=cdata)
         self.c = np.array([ci, cj, ck])
-        print("Center-of-Mass: {}".format(self.c))
+        print(f"Center-of-Mass: {self.c}")
 
         # compute 1/2 head radius with spherical formula
         self.r = 0.5 * np.cbrt(3 * np.sum(self.rdata > self.t) / (4 * np.pi))
@@ -93,7 +97,7 @@ class BrainExtractor:
 
         # get median value within estimated head sphere
         self.tm = np.median(self.data[sphere(self.shape, 2 * self.r, self.c)])
-        print("Median within Head Radius: %f" % self.tm)
+        print(f"Median within Head Radius: {self.tm:f}")
 
         # generate initial surface
         print("Initializing surface...")
@@ -211,7 +215,7 @@ class BrainExtractor:
 
         # compute centroids
         centroids = np.zeros((vertices.shape[0], 3))
-        for i, (n, s) in enumerate(zip(neighbors, neighbors_size)):
+        for i, (n, s) in enumerate(zip(neighbors, neighbors_size)):  # noqa: B905  (numba @jit doesn't support strict=)
             centroids[i, 0] = np.mean(n[:s, 0])
             centroids[i, 1] = np.mean(n[:s, 1])
             centroids[i, 2] = np.mean(n[:s, 2])
@@ -282,7 +286,7 @@ class BrainExtractor:
 
         # surface deformation loop
         for i in range(iterations):
-            print("Iteration: %d" % i, end="\r")
+            print(f"Iteration: {i}", end="\r")
             # run one step of deformation
             self.step_of_deformation(
                 self.data,
@@ -310,7 +314,7 @@ class BrainExtractor:
             # update vertices
             self.vertices += u
             if deformation_path:  # write to stl if enabled
-                surface_file = "surface{:0>5d}.stl".format(i)
+                surface_file = f"surface{i:0>5d}.stl"
                 dirpath = os.path.dirname(deformation_path)
                 self.rebuild_surface()
                 self.save_surface(os.path.join(dirpath, surface_file))
@@ -369,7 +373,7 @@ class BrainExtractor:
             u1[i] = 0.5 * s_t[i]
 
             # compute local radius of curvature
-            r = (l ** 2) / (2 * l2norm(s_n[i]))
+            r = (l**2) / (2 * l2norm(s_n[i]))
 
             # compute f2
             f2 = (1 + np.tanh(F * (1 / r - E))) / 2
@@ -425,7 +429,6 @@ class BrainExtractor:
         vol = self.surface.voxelized(1)
         vol = vol.fill()
         self.mask = np.zeros(self.shape)
-        bounds = vol.bounds
 
         # adjust bounds to handle data outside the field of view
 
